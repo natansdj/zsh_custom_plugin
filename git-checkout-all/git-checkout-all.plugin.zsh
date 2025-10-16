@@ -1,5 +1,5 @@
 # Git Checkout All Plugin
-# Author: Your Name
+# Author: natansdj
 # Description: Comprehensive git operations for multiple repositories in current directory
 
 # Main function to checkout branch in all repositories
@@ -9,21 +9,21 @@ git-checkout-all() {
     echo "Example: git-checkout-all main"
     return 1
   fi
-  
+
   local branch_name="$1"
   local base_path="$(pwd)"
   local success_count=0
   local total_repos=0
-  
+
   echo "🔍 Searching for git repositories in $(pwd)..."
   echo "🌿 Attempting to checkout branch: $branch_name"
   echo "─────────────────────────────────────────────────"
-  
+
   for dir in "$base_path"/*/; do
     if [ -d "$dir/.git" ]; then
       local repo_name=$(basename "$dir")
       total_repos=$((total_repos + 1))
-      
+
       echo -n "📁 $repo_name: "
       (cd "$dir" && {
         # Check if branch exists locally
@@ -48,17 +48,17 @@ git-checkout-all() {
       })
     fi
   done
-  
+
   echo "─────────────────────────────────────────────────"
   echo "📊 Summary: $success_count/$total_repos repositories updated"
-  
+
   if [ $total_repos -eq 0 ]; then
     echo "⚠️  No git repositories found in $(pwd)"
   fi
 }
 
 # Alias for shorter command
-alias gcoa='git-checkout-all'
+alias ggcoa='git-checkout-all'
 
 # Function to fetch all repositories
 git-fetch-all() {
@@ -118,15 +118,15 @@ git-fetch-all() {
 }
 
 # Alias for fetch all
-alias gfa='git-fetch-all'
+alias ggfa='git-fetch-all'
 
 # Function to list all branches across repositories
 git-list-branches-all() {
   local base_path="$(pwd)"
-  
+
   echo "🌿 Listing branches across all repositories in $(pwd):"
   echo "─────────────────────────────────────────────────"
-  
+
   for dir in "$base_path"/*/; do
     if [ -d "$dir/.git" ]; then
       local repo_name=$(basename "$dir")
@@ -160,10 +160,10 @@ alias glba='git-list-branches-all'
 # Function to show current branch status in all repositories
 git-status-all() {
   local base_path="$(pwd)"
-  
+
   echo "📊 Current branch status across all repositories:"
   echo "─────────────────────────────────────────────────"
-  
+
   for dir in "$base_path"/*/; do
     if [ -d "$dir/.git" ]; then
       local repo_name=$(basename "$dir")
@@ -301,8 +301,8 @@ git-checkout-all-help() {
   echo "Git Checkout All Plugin - Available Commands:"
   echo "─────────────────────────────────────────────────"
   echo "BULK OPERATIONS (all repos in current directory):"
-  echo "  git-checkout-all <branch>    - Checkout branch in all repos (alias: gcoa)"
-  echo "  git-fetch-all [--prune]      - Fetch all repos, optionally with prune (alias: gfa)"
+  echo "  git-checkout-all <branch>    - Checkout branch in all repos (alias: ggcoa)"
+  echo "  git-fetch-all [--prune]      - Fetch all repos, optionally with prune (alias: ggfa)"
   echo "  git-list-branches-all        - List all branches in all repos (alias: glba)"
   echo "  git-status-all               - Show current branch status (alias: gsa)"
   echo ""
@@ -314,9 +314,9 @@ git-checkout-all-help() {
   echo ""
   echo "Examples:"
   echo "BULK:"
-  echo "  gcoa main                    # Checkout main branch in all repos"
-  echo "  gfa                          # Fetch all repos"
-  echo "  gfa --prune                  # Fetch all repos with prune"
+  echo "  ggcoa main                    # Checkout main branch in all repos"
+  echo "  ggfa                          # Fetch all repos"
+  echo "  ggfa --prune                  # Fetch all repos with prune"
   echo "  glba                         # List all branches in all repos"
   echo "  gsa                          # Show current status of all repos"
   echo ""
