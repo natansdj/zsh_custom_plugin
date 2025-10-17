@@ -88,19 +88,55 @@ _print_summary() {
 
 # Main function to checkout branch in all repositories
 git-checkout-all() {
-  if [ -z "$1" ]; then
-    echo "Usage: git-checkout-all <branch-name>"
-    echo "Example: git-checkout-all main"
-    return 1
-  fi
-
-  local branch_name="$1"
+  local create_branch=false
+  local branch_name=""
   local base_path="$(pwd)"
   local success_count=0
   local total_repos=0
 
+  # Parse options and arguments
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -b)
+        create_branch=true
+        shift
+        ;;
+      -*)
+        echo "Unknown option: $1"
+        echo "Usage: git-checkout-all [-b] <branch-name>"
+        echo "  -b    Create new branch locally (like git checkout -b)"
+        echo "Example: git-checkout-all main"
+        echo "Example: git-checkout-all -b feature/new-feature"
+        return 1
+        ;;
+      *)
+        if [ -z "$branch_name" ]; then
+          branch_name="$1"
+        else
+          echo "Error: Multiple branch names provided"
+          echo "Usage: git-checkout-all [-b] <branch-name>"
+          return 1
+        fi
+        shift
+        ;;
+    esac
+  done
+
+  # Validate branch name is provided
+  if [ -z "$branch_name" ]; then
+    echo "Usage: git-checkout-all [-b] <branch-name>"
+    echo "  -b    Create new branch locally (like git checkout -b)"
+    echo "Example: git-checkout-all main"
+    echo "Example: git-checkout-all -b feature/new-feature"
+    return 1
+  fi
+
   _print_header "🔍 Searching for git repositories in $(pwd)..."
-  echo "🌿 Attempting to checkout branch: $branch_name"
+  if [ "$create_branch" = true ]; then
+    echo "🆕 Creating and checking out new branch: $branch_name"
+  else
+    echo "🌿 Attempting to checkout branch: $branch_name"
+  fi
 
   for dir in "$base_path"/*/; do
     if [ -d "$dir/.git" ]; then
@@ -109,30 +145,49 @@ git-checkout-all() {
 
       echo -n "📁 $repo_name: "
       (cd "$dir" && {
-        # Check if branch exists locally
-        if _branch_exists_local "$branch_name"; then
-          if git checkout "$branch_name" >/dev/null 2>&1; then
-            echo "✅ Success"
-            success_count=$((success_count + 1))
+        if [ "$create_branch" = true ]; then
+          # Creating new branch mode
+          if _branch_exists_local "$branch_name"; then
+            echo "⚠️  Branch already exists locally"
           else
-            echo "❌ Failed to checkout"
-          fi
-        # Check if branch exists on remote
-        elif _branch_exists_remote "origin" "$branch_name"; then
-          if git checkout -b "$branch_name" "origin/$branch_name" >/dev/null 2>&1; then
-            echo "✅ Success (created from remote)"
-            success_count=$((success_count + 1))
-          else
-            echo "❌ Failed to create from remote"
+            if git checkout -b "$branch_name" >/dev/null 2>&1; then
+              echo "✅ Created and checked out"
+              success_count=$((success_count + 1))
+            else
+              echo "❌ Failed to create branch"
+            fi
           fi
         else
-          echo "⚠️  Branch not found"
+          # Regular checkout mode (existing behavior)
+          # Check if branch exists locally
+          if _branch_exists_local "$branch_name"; then
+            if git checkout "$branch_name" >/dev/null 2>&1; then
+              echo "✅ Success"
+              success_count=$((success_count + 1))
+            else
+              echo "❌ Failed to checkout"
+            fi
+          # Check if branch exists on remote
+          elif _branch_exists_remote "origin" "$branch_name"; then
+            if git checkout -b "$branch_name" "origin/$branch_name" >/dev/null 2>&1; then
+              echo "✅ Success (created from remote)"
+              success_count=$((success_count + 1))
+            else
+              echo "❌ Failed to create from remote"
+            fi
+          else
+            echo "⚠️  Branch not found"
+          fi
         fi
       })
     fi
   done
 
-  _print_summary "$success_count" "$total_repos" "updated"
+  if [ "$create_branch" = true ]; then
+    _print_summary "$success_count" "$total_repos" "branches created"
+  else
+    _print_summary "$success_count" "$total_repos" "updated"
+  fi
 }
 
 # Alias for shorter command
@@ -571,7 +626,8 @@ git-checkout-all-help() {
   echo "Git Checkout All Plugin - Available Commands:"
   echo "─────────────────────────────────────────────────"
   echo "BULK OPERATIONS (all repos in current directory):"
-  echo "  git-checkout-all <branch>             - Checkout branch in all repos (alias: ggcoa)"
+  echo "  git-checkout-all [-b] <branch>        - Checkout branch in all repos (alias: ggcoa)"
+  echo "                                          -b: Create new branch locally (like git checkout -b)"
   echo "  git-fetch-all [--prune] [--pull]      - Fetch all repos, optionally prune and pull (alias: ggfa)"
   echo "  git-match-origin-all <o1> <o2> <br> [repo] - Sync branch from origin1 to origin2 (alias: ggmoa)"
   echo "  git-list-branches-all                 - List all branches in all repos (alias: glba)"
@@ -586,6 +642,7 @@ git-checkout-all-help() {
   echo "Examples:"
   echo "BULK:"
   echo "  ggcoa main                             # Checkout main branch in all repos"
+  echo "  ggcoa -b feature/new-feature           # Create new branch locally in all repos"
   echo "  ggfa                                   # Fetch all repos"
   echo "  ggfa --prune                           # Fetch all repos with prune"
   echo "  ggfa --pull                            # Fetch and pull updates in all repos"
