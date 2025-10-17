@@ -66,6 +66,93 @@ _can_fast_forward() {
   [ "$merge_base" = "$head_commit" ]
 }
 
+# Pull updates for specific branches if available
+_pull_branch_updates() {
+  local branches=("$@")
+  local pull_count=0
+  local updated_branches=()
+  local current_branch=$(git branch --show-current 2>/dev/null)
+  local original_branch="$current_branch"
+  
+  for branch in "${branches[@]}"; do
+    local upstream="origin/$branch"
+    
+    # Check if branch exists locally and on remote
+    if _branch_exists_local "$branch" && git rev-parse --verify "$upstream" >/dev/null 2>&1; then
+      local local_commit=$(git rev-parse "$branch" 2>/dev/null)
+      local remote_commit=$(git rev-parse "$upstream" 2>/dev/null)
+      
+      # If there are updates available
+      if [ "$local_commit" != "$remote_commit" ]; then
+        # Switch to the branch to update it
+        if git checkout "$branch" >/dev/null 2>&1; then
+          # Try to fast-forward
+          if _can_fast_forward "$upstream"; then
+            if git merge --ff-only "$upstream" >/dev/null 2>&1; then
+              updated_branches+=("$branch")
+              pull_count=$((pull_count + 1))
+            fi
+          fi
+        fi
+      fi
+    fi
+  done
+  
+  # Return to original branch if it existed
+  if [ -n "$original_branch" ] && [ "$original_branch" != "$(git branch --show-current 2>/dev/null)" ]; then
+    git checkout "$original_branch" >/dev/null 2>&1
+  fi
+  
+  # Return results
+  echo "$pull_count:${updated_branches[*]}"
+}
+
+# Process fetch and pull for a single repository
+_process_repository_fetch() {
+  local repo_path="$1"
+  local use_prune="$2"
+  local use_pull="$3"
+  local repo_name=$(basename "$repo_path")
+  
+  echo -n "📁 $repo_name: "
+  
+  (cd "$repo_path" && {
+    local fetch_options=""
+    if [ "$use_prune" = true ]; then
+      fetch_options="--prune"
+    fi
+    
+    # First, fetch
+    if git fetch $fetch_options >/dev/null 2>&1; then
+      local fetch_success=true
+      echo -n "✅ Fetched"
+      
+      # If --pull is specified, try to update specific branches
+      if [ "$use_pull" = true ] && [ "$fetch_success" = true ]; then
+        # Define target branches to pull
+        local target_branches=("develop" "staging" "master")
+        local pull_result=$(_pull_branch_updates "${target_branches[@]}")
+        local branch_pull_count=$(echo "$pull_result" | cut -d: -f1)
+        local updated_branches=$(echo "$pull_result" | cut -d: -f2)
+        
+        if [ "$branch_pull_count" -gt 0 ]; then
+          echo " + 🔄 Pulled $branch_pull_count branch(es): $updated_branches"
+          return "$branch_pull_count"
+        else
+          echo " (no updates for develop/staging/master)"
+          return 0
+        fi
+      else
+        echo ""
+        return 0
+      fi
+    else
+      echo "❌ Failed"
+      return -1
+    fi
+  })
+}
+
 # Print section header
 _print_header() {
   echo "$1"
@@ -237,62 +324,18 @@ git-fetch-all() {
 
   for dir in "$base_path"/*/; do
     if [ -d "$dir/.git" ]; then
-      local repo_name=$(basename "$dir")
       total_repos=$((total_repos + 1))
-
-      echo -n "📁 $repo_name: "
-      (cd "$dir" && {
-        # First, fetch
-        if git fetch $fetch_options >/dev/null 2>&1; then
-          local fetch_success=true
-          echo -n "✅ Fetched"
-          success_count=$((success_count + 1))
-          
-          # If --pull is specified, try to update local branches
-          if [ "$use_pull" = true ] && [ "$fetch_success" = true ]; then
-            local current_branch=$(git branch --show-current 2>/dev/null)
-            local updated=false
-            
-            if [ -n "$current_branch" ]; then
-              # Check if there are updates available
-              local upstream="origin/$current_branch"
-              if git rev-parse --verify "$upstream" >/dev/null 2>&1; then
-                local local_commit=$(git rev-parse HEAD 2>/dev/null)
-                local remote_commit=$(git rev-parse "$upstream" 2>/dev/null)
-                
-                if [ "$local_commit" != "$remote_commit" ]; then
-                  # There are updates, try to pull
-                  if _can_fast_forward "$upstream"; then
-                    if git merge --ff-only "$upstream" >/dev/null 2>&1; then
-                      echo " + 🔄 Pulled (fast-forward)"
-                      updated=true
-                      pull_count=$((pull_count + 1))
-                    else
-                      echo " ⚠️ Pull failed"
-                    fi
-                  else
-                    echo " ⚠️ Cannot fast-forward, manual merge needed"
-                  fi
-                else
-                  echo " (up to date)"
-                fi
-              else
-                echo " (no upstream)"
-              fi
-            else
-              echo " (detached HEAD)"
-            fi
-            
-            if [ "$updated" = false ] && [ "$use_pull" = true ]; then
-              echo ""
-            fi
-          else
-            echo ""
-          fi
-        else
-          echo "❌ Failed"
+      
+      # Process the repository using the utility function
+      local result=$(_process_repository_fetch "$dir" "$use_prune" "$use_pull")
+      local exit_code=$?
+      
+      if [ $exit_code -ne -1 ]; then
+        success_count=$((success_count + 1))
+        if [ "$use_pull" = true ] && [ $exit_code -gt 0 ]; then
+          pull_count=$((pull_count + exit_code))
         fi
-      })
+      fi
     fi
   done
 
@@ -300,6 +343,99 @@ git-fetch-all() {
     _print_summary "$success_count" "$total_repos" "fetched, $pull_count pulled"
   else
     _print_summary "$success_count" "$total_repos" "fetched"
+  fi
+}
+
+# Function to fetch a single repository
+git-fetch-one() {
+  if [ -z "$1" ]; then
+    echo "Usage: git-fetch-one [--prune] [--pull] <repo-name>"
+    echo "Example: git-fetch-one my-project"
+    echo "Example: git-fetch-one --pull my-project"
+    echo "Example: git-fetch-one --prune --pull my-project"
+    return 1
+  fi
+
+  local use_prune=false
+  local use_pull=false
+  local repo_name=""
+  local base_path="$(pwd)"
+
+  # Parse options and arguments
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --prune)
+        use_prune=true
+        shift
+        ;;
+      --pull)
+        use_pull=true
+        shift
+        ;;
+      -*)
+        echo "Unknown option: $1"
+        echo "Usage: git-fetch-one [--prune] [--pull] <repo-name>"
+        return 1
+        ;;
+      *)
+        if [ -z "$repo_name" ]; then
+          repo_name="$1"
+        else
+          echo "Error: Multiple repository names provided"
+          echo "Usage: git-fetch-one [--prune] [--pull] <repo-name>"
+          return 1
+        fi
+        shift
+        ;;
+    esac
+  done
+
+  # Validate repository name is provided
+  if [ -z "$repo_name" ]; then
+    echo "Usage: git-fetch-one [--prune] [--pull] <repo-name>"
+    echo "Example: git-fetch-one my-project"
+    echo "Example: git-fetch-one --pull my-project"
+    echo "Example: git-fetch-one --prune --pull my-project"
+    return 1
+  fi
+
+  # Validate repository exists
+  if ! _validate_repository "$repo_name" "$base_path"; then
+    return 1
+  fi
+
+  local target_dir="$base_path/$repo_name"
+  local operation_desc="Fetching"
+  
+  if [ "$use_prune" = true ]; then
+    operation_desc="$operation_desc with prune"
+  fi
+  
+  if [ "$use_pull" = true ]; then
+    operation_desc="$operation_desc and pulling"
+  fi
+
+  _print_header "🔄 $operation_desc repository: $repo_name"
+
+  # Process the single repository
+  local result=$(_process_repository_fetch "$target_dir" "$use_prune" "$use_pull")
+  local exit_code=$?
+  
+  if [ $exit_code -eq -1 ]; then
+    echo ""
+    echo "❌ Fetch operation failed for $repo_name"
+    return 1
+  elif [ "$use_pull" = true ]; then
+    local pull_count=$exit_code
+    echo ""
+    if [ $pull_count -gt 0 ]; then
+      echo "✅ Repository fetched successfully, $pull_count branch(es) pulled"
+    else
+      echo "✅ Repository fetched successfully, no branches needed pulling"
+    fi
+  else
+    echo ""
+    echo "✅ Repository fetched successfully"
   fi
 }
 
@@ -453,6 +589,9 @@ git-match-origin-all() {
 
 # Alias for fetch all
 alias ggfa='git-fetch-all'
+
+# Alias for fetch one
+alias ggfo='git-fetch-one'
 
 # Alias for match origin all
 alias ggmoa='git-match-origin-all'
@@ -629,11 +768,13 @@ git-checkout-all-help() {
   echo "  git-checkout-all [-b] <branch>        - Checkout branch in all repos (alias: ggcoa)"
   echo "                                          -b: Create new branch locally (like git checkout -b)"
   echo "  git-fetch-all [--prune] [--pull]      - Fetch all repos, optionally prune and pull (alias: ggfa)"
+  echo "                                          --pull: Updates develop/staging/master branches if available"
   echo "  git-match-origin-all <o1> <o2> <br> [repo] - Sync branch from origin1 to origin2 (alias: ggmoa)"
   echo "  git-list-branches-all                 - List all branches in all repos (alias: glba)"
   echo "  git-status-all                        - Show current branch status (alias: gsa)"
   echo ""
   echo "SINGLE REPO OPERATIONS:"
+  echo "  git-fetch-one [--prune] [--pull] <repo> - Fetch one repo, optionally prune and pull (alias: ggfo)"
   echo "  git-status-one <repo>                 - Show detailed status for one repo (alias: gso)"
   echo "  git-list-branches-one <repo>          - List all branches in one repo (alias: glbo)"
   echo ""
@@ -645,18 +786,26 @@ git-checkout-all-help() {
   echo "  ggcoa -b feature/new-feature           # Create new branch locally in all repos"
   echo "  ggfa                                   # Fetch all repos"
   echo "  ggfa --prune                           # Fetch all repos with prune"
-  echo "  ggfa --pull                            # Fetch and pull updates in all repos"
-  echo "  ggfa --prune --pull                    # Fetch with prune and pull updates"
+  echo "  ggfa --pull                            # Fetch and pull updates for develop/staging/master"
+  echo "  ggfa --prune --pull                    # Fetch with prune and pull specific branches"
   echo "  ggmoa upstream origin main             # Sync main branch from upstream to origin"
   echo "  ggmoa upstream origin dev my-repo      # Sync dev branch only in my-repo"
   echo "  glba                                   # List all branches in all repos"
   echo "  gsa                                    # Show current status of all repos"
   echo ""
   echo "SINGLE:"
+  echo "  ggfo my-project                        # Fetch one repo"
+  echo "  ggfo --pull my-project                 # Fetch and pull develop/staging/master in one repo"
+  echo "  ggfo --prune --pull my-project         # Fetch with prune and pull in one repo"
   echo "  gso my-project                         # Show detailed status for 'my-project'"
   echo "  glbo my-project                        # List all branches in 'my-project'"
   echo ""
   echo "ADVANCED:"
+  echo "  git-fetch-all --pull:"
+  echo "    - Only updates develop, staging, and master branches"
+  echo "    - Uses fast-forward merges only for safety"
+  echo "    - Returns to original branch after updates"
+  echo ""
   echo "  git-match-origin-all:"
   echo "    - Fetches from both remotes"
   echo "    - Fast-forwards when possible"
