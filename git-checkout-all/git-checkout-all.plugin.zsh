@@ -327,7 +327,8 @@ git-fetch-all() {
       total_repos=$((total_repos + 1))
       
       # Process the repository using the utility function
-      local result=$(_process_repository_fetch "$dir" "$use_prune" "$use_pull")
+      # Allow output to be displayed while capturing exit code
+      _process_repository_fetch "$dir" "$use_prune" "$use_pull"
       local exit_code=$?
       
       if [ $exit_code -ne -1 ]; then
