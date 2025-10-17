@@ -130,7 +130,7 @@ _process_repository_fetch() {
       # If --pull is specified, try to update specific branches
       if [ "$use_pull" = true ] && [ "$fetch_success" = true ]; then
         # Define target branches to pull
-        local target_branches=("develop" "staging" "master")
+        local target_branches=("develop-pjp" "develop" "staging" "master")
         local pull_result=$(_pull_branch_updates "${target_branches[@]}")
         local branch_pull_count=$(echo "$pull_result" | cut -d: -f1)
         local updated_branches=$(echo "$pull_result" | cut -d: -f2)
@@ -139,7 +139,7 @@ _process_repository_fetch() {
           echo " + 🔄 Pulled $branch_pull_count branch(es): $updated_branches"
           return "$branch_pull_count"
         else
-          echo " (no updates for develop/staging/master)"
+          echo " (no updates for develop-pjp/develop/staging/master)"
           return 0
         fi
       else
@@ -768,7 +768,7 @@ git-checkout-all-help() {
   echo "  git-checkout-all [-b] <branch>        - Checkout branch in all repos (alias: ggcoa)"
   echo "                                          -b: Create new branch locally (like git checkout -b)"
   echo "  git-fetch-all [--prune] [--pull]      - Fetch all repos, optionally prune and pull (alias: ggfa)"
-  echo "                                          --pull: Updates develop/staging/master branches if available"
+  echo "                                          --pull: Updates develop-pjp/develop/staging/master branches if available"
   echo "  git-match-origin-all <o1> <o2> <br> [repo] - Sync branch from origin1 to origin2 (alias: ggmoa)"
   echo "  git-list-branches-all                 - List all branches in all repos (alias: glba)"
   echo "  git-status-all                        - Show current branch status (alias: gsa)"
@@ -786,7 +786,7 @@ git-checkout-all-help() {
   echo "  ggcoa -b feature/new-feature           # Create new branch locally in all repos"
   echo "  ggfa                                   # Fetch all repos"
   echo "  ggfa --prune                           # Fetch all repos with prune"
-  echo "  ggfa --pull                            # Fetch and pull updates for develop/staging/master"
+  echo "  ggfa --pull                            # Fetch and pull updates for develop-pjp/develop/staging/master"
   echo "  ggfa --prune --pull                    # Fetch with prune and pull specific branches"
   echo "  ggmoa upstream origin main             # Sync main branch from upstream to origin"
   echo "  ggmoa upstream origin dev my-repo      # Sync dev branch only in my-repo"
@@ -795,14 +795,14 @@ git-checkout-all-help() {
   echo ""
   echo "SINGLE:"
   echo "  ggfo my-project                        # Fetch one repo"
-  echo "  ggfo --pull my-project                 # Fetch and pull develop/staging/master in one repo"
+  echo "  ggfo --pull my-project                 # Fetch and pull develop-pjp/develop/staging/master in one repo"
   echo "  ggfo --prune --pull my-project         # Fetch with prune and pull in one repo"
   echo "  gso my-project                         # Show detailed status for 'my-project'"
   echo "  glbo my-project                        # List all branches in 'my-project'"
   echo ""
   echo "ADVANCED:"
   echo "  git-fetch-all --pull:"
-  echo "    - Only updates develop, staging, and master branches"
+  echo "    - Only updates develop-pjp, develop, staging, and master branches"
   echo "    - Uses fast-forward merges only for safety"
   echo "    - Returns to original branch after updates"
   echo ""
