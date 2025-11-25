@@ -1,7 +1,12 @@
-*
+/*.md
+/*.txt
 !.gitignore
 !LICENSE.txt
 !LICENSE
 !README.md
 !git-checkout-all
 !vt745
+!.github
+!.github/*
+!example
+!example/*
