@@ -1,0 +1,40 @@
+# Git Checkout All - Target Branches Configuration
+# 
+# This file defines which branches should be updated when using the --pull flag
+# with git-fetch-all or git-fetch-one commands.
+#
+# Configuration Methods (in priority order):
+# 1. Environment Variable:
+#    export GIT_CHECKOUT_ALL_TARGET_BRANCHES="develop,staging,main"
+#
+# 2. Config File (this file):
+#    Copy this file to: ~/.git-checkout-all.conf
+#
+# 3. Default (if no configuration found):
+#    develop-pjp, develop, staging, master
+#
+# Format:
+# - One branch per line, OR
+# - Comma-separated list on one or multiple lines
+# - Lines starting with # are comments
+# - Empty lines are ignored
+#
+# Examples:
+
+# Method 1: One branch per line (recommended)
+develop-pjp
+develop
+staging
+master
+
+# Method 2: Comma-separated (alternative)
+# develop-pjp,develop,staging,master
+
+# Method 3: Mixed format
+# develop-pjp, develop
+# staging, master
+
+# Add your custom branches:
+# main
+# production
+# release

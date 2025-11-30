@@ -5,6 +5,7 @@
 !LICENSE
 !README.md
 !git-checkout-all
+git-checkout-all/.git-checkout-all.conf
 !vt745
 !.github
 !.github/*

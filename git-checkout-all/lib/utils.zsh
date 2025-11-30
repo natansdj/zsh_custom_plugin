@@ -1,6 +1,42 @@
 # Git Checkout All Plugin - Utility Functions
 # Shared helper functions for git operations
 
+# Load target branches configuration
+# Priority: 1. Environment variable, 2. Config file, 3. Default
+_load_target_branches_config() {
+  local config_file="${HOME}/.git-checkout-all.conf"
+  local branches=()
+  
+  # Priority 1: Check environment variable
+  if [ -n "$GIT_CHECKOUT_ALL_TARGET_BRANCHES" ]; then
+    # Split by comma or space
+    IFS=',' read -rA branches <<< "$GIT_CHECKOUT_ALL_TARGET_BRANCHES"
+    # Trim whitespace from each branch
+    branches=("${(@)branches//[[:space:]]/}")
+  # Priority 2: Check config file
+  elif [ -f "$config_file" ]; then
+    # Read branches from config file (one per line or comma-separated)
+    while IFS= read -r line || [ -n "$line" ]; do
+      # Skip empty lines and comments
+      [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+      # Handle comma-separated values in a line
+      IFS=',' read -rA line_branches <<< "$line"
+      for branch in "${line_branches[@]}"; do
+        # Trim whitespace
+        branch="${branch//[[:space:]]/}"
+        [ -n "$branch" ] && branches+=("$branch")
+      done
+    done < "$config_file"
+  fi
+  
+  # Priority 3: Use defaults if nothing configured
+  if [ ${#branches[@]} -eq 0 ]; then
+    branches=("develop-pjp" "develop" "staging" "master")
+  fi
+  
+  printf '%s\n' "${branches[@]}"
+}
+
 # Get all git repositories in current directory
 _get_git_repositories() {
   local base_path="${1:-$(pwd)}"
@@ -125,8 +161,12 @@ _process_repository_fetch() {
       
       # If --pull is specified, try to update specific branches
       if [ "$use_pull" = true ] && [ "$fetch_success" = true ]; then
-        # Define target branches to pull
-        local target_branches=("develop-pjp" "develop" "staging" "master")
+        # Load target branches from configuration
+        local target_branches=()
+        while IFS= read -r branch; do
+          target_branches+=("$branch")
+        done < <(_load_target_branches_config)
+        
         local pull_result=$(_pull_branch_updates "${target_branches[@]}")
         local branch_pull_count=$(echo "$pull_result" | cut -d: -f1)
         local updated_branches=$(echo "$pull_result" | cut -d: -f2)
@@ -135,7 +175,8 @@ _process_repository_fetch() {
           echo " + 🔄 Pulled $branch_pull_count branch(es): $updated_branches"
           return "$branch_pull_count"
         else
-          echo " (no updates for develop-pjp/develop/staging/master)"
+          local branch_list=$(echo "${target_branches[@]}" | sed 's/ /\//g')
+          echo " (no updates for $branch_list)"
           return 0
         fi
       else
