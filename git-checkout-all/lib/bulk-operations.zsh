@@ -145,12 +145,24 @@ git-fetch-all() {
 
   _print_header "🔄 $operation_desc all repositories in $(pwd)..."
 
+  # Load target branches configuration once
+  local config_result=$(_load_target_branches_config)
+  local config_source="${config_result%%|*}"
+  local branches_str="${config_result#*|}"
+  local target_branches=(${(s: :)branches_str})
+  
+  # Log configuration once if using --pull
+  if [ "$use_pull" = true ]; then
+    echo "🔧 Target branches loaded from: $config_source" >&2
+    echo "📋 Branches: ${target_branches[*]}" >&2
+  fi
+
   for dir in "$base_path"/*/; do
     if [ -d "$dir/.git" ]; then
       total_repos=$((total_repos + 1))
       
       # Process the repository using the utility function
-      _process_repository_fetch "$dir" "$use_prune" "$use_pull"
+      _process_repository_fetch "$dir" "$use_prune" "$use_pull" "${target_branches[@]}"
       local exit_code=$?
       
       if [ $exit_code -ne -1 ]; then

@@ -72,8 +72,20 @@ git-fetch-one() {
 
   _print_header "🔄 $operation_desc repository: $repo_name"
 
+  # Load target branches configuration once
+  local config_result=$(_load_target_branches_config)
+  local config_source="${config_result%%|*}"
+  local branches_str="${config_result#*|}"
+  local target_branches=(${(s: :)branches_str})
+  
+  # Log configuration once if using --pull
+  if [ "$use_pull" = true ]; then
+    echo "🔧 Target branches loaded from: $config_source" >&2
+    echo "📋 Branches: ${target_branches[*]}" >&2
+  fi
+
   # Process the single repository
-  _process_repository_fetch "$target_dir" "$use_prune" "$use_pull"
+  _process_repository_fetch "$target_dir" "$use_prune" "$use_pull" "${target_branches[@]}"
   local exit_code=$?
   
   if [ $exit_code -eq -1 ]; then

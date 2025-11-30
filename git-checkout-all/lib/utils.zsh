@@ -15,8 +15,6 @@ _load_target_branches_config() {
     # Trim whitespace from each branch
     branches=("${(@)branches//[[:space:]]/}")
     config_source="environment variable"
-    echo "🔧 Target branches loaded from: $config_source" >&2
-    echo "📋 Branches: ${branches[*]}" >&2
   # Priority 2: Check config file
   elif [ -f "$config_file" ]; then
     # Read branches from config file (one per line or comma-separated)
@@ -32,19 +30,16 @@ _load_target_branches_config() {
       done
     done < "$config_file"
     config_source="config file (~/.git-checkout-all.conf)"
-    echo "🔧 Target branches loaded from: $config_source" >&2
-    echo "📋 Branches: ${branches[*]}" >&2
   fi
   
   # Priority 3: Use defaults if nothing configured
   if [ ${#branches[@]} -eq 0 ]; then
     branches=("develop-pjp" "develop" "staging" "master")
     config_source="defaults"
-    echo "🔧 Target branches loaded from: $config_source" >&2
-    echo "📋 Branches: ${branches[*]}" >&2
   fi
   
-  printf '%s\n' "${branches[@]}"
+  # Output format: config_source|branch1,branch2,branch3
+  echo "${config_source}|${branches[*]}"
 }
 
 # Get all git repositories in current directory
@@ -154,6 +149,8 @@ _process_repository_fetch() {
   local repo_path="$1"
   local use_prune="$2"
   local use_pull="$3"
+  shift 3
+  local target_branches=("$@")
   local repo_name=$(basename "$repo_path")
   
   echo -n "📁 $repo_name: "
@@ -171,11 +168,6 @@ _process_repository_fetch() {
       
       # If --pull is specified, try to update specific branches
       if [ "$use_pull" = true ] && [ "$fetch_success" = true ]; then
-        # Load target branches from configuration
-        local target_branches=()
-        while IFS= read -r branch; do
-          target_branches+=("$branch")
-        done < <(_load_target_branches_config)
         
         local pull_result=$(_pull_branch_updates "${target_branches[@]}")
         local branch_pull_count=$(echo "$pull_result" | cut -d: -f1)
