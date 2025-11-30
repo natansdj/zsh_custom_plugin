@@ -6,6 +6,7 @@
 _load_target_branches_config() {
   local config_file="${HOME}/.git-checkout-all.conf"
   local branches=()
+  local config_source=""
   
   # Priority 1: Check environment variable
   if [ -n "$GIT_CHECKOUT_ALL_TARGET_BRANCHES" ]; then
@@ -13,6 +14,9 @@ _load_target_branches_config() {
     IFS=',' read -rA branches <<< "$GIT_CHECKOUT_ALL_TARGET_BRANCHES"
     # Trim whitespace from each branch
     branches=("${(@)branches//[[:space:]]/}")
+    config_source="environment variable"
+    echo "🔧 Target branches loaded from: $config_source" >&2
+    echo "📋 Branches: ${branches[*]}" >&2
   # Priority 2: Check config file
   elif [ -f "$config_file" ]; then
     # Read branches from config file (one per line or comma-separated)
@@ -27,11 +31,17 @@ _load_target_branches_config() {
         [ -n "$branch" ] && branches+=("$branch")
       done
     done < "$config_file"
+    config_source="config file (~/.git-checkout-all.conf)"
+    echo "🔧 Target branches loaded from: $config_source" >&2
+    echo "📋 Branches: ${branches[*]}" >&2
   fi
   
   # Priority 3: Use defaults if nothing configured
   if [ ${#branches[@]} -eq 0 ]; then
     branches=("develop-pjp" "develop" "staging" "master")
+    config_source="defaults"
+    echo "🔧 Target branches loaded from: $config_source" >&2
+    echo "📋 Branches: ${branches[*]}" >&2
   fi
   
   printf '%s\n' "${branches[@]}"
