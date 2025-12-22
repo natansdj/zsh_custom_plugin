@@ -386,3 +386,46 @@ git-status-all() {
     fi
   done
 }
+
+# List latest tags from all repositories
+git-list-tag-all() {
+  local base_path="$(pwd)"
+  local success_count=0
+  local total_repos=0
+
+  _print_header "🔍 Listing latest tags from repositories in $(pwd)..."
+
+  # Get list of git repositories
+  local repos=($(_get_git_repositories "$base_path"))
+  
+  if [ ${#repos[@]} -eq 0 ]; then
+    echo "❌ No git repositories found in current directory"
+    return 1
+  fi
+
+  _print_header "📊 Found ${#repos[@]} git repositories"
+
+  for repo_path in "${repos[@]}"; do
+    total_repos=$((total_repos + 1))
+    local repo_name=$(basename "$repo_path")
+    
+    (cd "$repo_path" && {
+      # Fetch tags from remote to ensure we have the latest
+      git fetch --tags --quiet 2>/dev/null
+      
+      # Get the 3 latest tags sorted by version
+      local tags=$(git tag -l 'v*' | sort -V -r | head -n 3)
+      
+      if [ -n "$tags" ]; then
+        # Convert newlines to commas for display
+        local tag_list=$(echo "$tags" | tr '\n' ', ' | sed 's/,$//')
+        echo "📁 $repo_name: ✅ Latest tags ($tag_list)"
+        success_count=$((success_count + 1))
+      else
+        echo "📁 $repo_name: ⚠️  No tags found"
+      fi
+    })
+  done
+
+  _print_header "📊 Summary: $success_count/$total_repos repositories with tags"
+}

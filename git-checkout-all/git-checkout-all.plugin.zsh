@@ -25,6 +25,9 @@ alias ggmoa='git-match-origin-all'
 # Alias for branch listing
 alias glba='git-list-branches-all'
 
+# Alias for tag listing
+alias glta='git-list-tag-all'
+
 # Alias for status check
 alias gsa='git-status-all'
 
@@ -45,6 +48,7 @@ git-checkout-all-help() {
   echo "                                          --pull: Updates configured target branches (default: develop-pjp/develop/staging/master)"
   echo "  git-match-origin-all <o1> <o2> <br> [repo] - Sync branch from origin1 to origin2 (alias: ggmoa)"
   echo "  git-list-branches-all                 - List all branches in all repos (alias: glba)"
+  echo "  git-list-tag-all                      - List 3 latest tags in all repos (alias: glta)"
   echo "  git-status-all                        - Show current branch status (alias: gsa)"
   echo ""
   echo "SINGLE REPO OPERATIONS:"
@@ -65,6 +69,7 @@ git-checkout-all-help() {
   echo "  ggmoa upstream origin main             # Sync main branch from upstream to origin"
   echo "  ggmoa upstream origin dev my-repo      # Sync dev branch only in my-repo"
   echo "  glba                                   # List all branches in all repos"
+  echo "  glta                                   # List 3 latest tags in all repos"
   echo "  gsa                                    # Show current status of all repos"
   echo ""
   echo "SINGLE:"
