@@ -34,7 +34,7 @@ _load_target_branches_config() {
   
   # Priority 3: Use defaults if nothing configured
   if [ ${#branches[@]} -eq 0 ]; then
-    branches=("develop-pjp" "develop" "staging" "master")
+    branches=("develop" "staging" "master")
     config_source="defaults"
   fi
   

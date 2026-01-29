@@ -413,8 +413,8 @@ git-list-tag-all() {
       # Fetch tags from remote to ensure we have the latest
       git fetch --tags --quiet 2>/dev/null
       
-      # Get the 3 latest tags sorted by version
-      local tags=$(git tag -l 'v*' | sort -V -r | head -n 3)
+      # Get the 5 latest tags sorted by version
+      local tags=$(git tag -l 'v*' | sort -V -r | head -n 5)
       
       if [ -n "$tags" ]; then
         # Convert newlines to commas for display
@@ -428,4 +428,140 @@ git-list-tag-all() {
   done
 
   _print_header "📊 Summary: $success_count/$total_repos repositories with tags"
+}
+
+# Create new tag by incrementing from latest tag
+git-tag-create() {
+  if [ $# -lt 2 ]; then
+    echo "Usage: git-tag-create <increment-type> <repo-name> [--push]"
+    echo "  increment-type: patch, minor, or major"
+    echo "  --push: Push the tag to remote after creation"
+    echo ""
+    echo "Examples:"
+    echo "  git-tag-create patch my-repo         # v1.0.1 -> v1.0.2"
+    echo "  git-tag-create minor my-repo         # v1.0.1 -> v1.1.0"
+    echo "  git-tag-create major my-repo         # v1.0.1 -> v2.0.0"
+    echo "  git-tag-create patch my-repo --push  # Create and push"
+    return 1
+  fi
+
+  local increment_type="$1"
+  local repo_name="$2"
+  local should_push=false
+  local base_path="$(pwd)"
+
+  # Check for --push flag
+  if [ "$3" = "--push" ]; then
+    should_push=true
+  fi
+
+  # Validate increment type
+  if [[ ! "$increment_type" =~ ^(patch|minor|major)$ ]]; then
+    echo "❌ Invalid increment type: $increment_type"
+    echo "   Must be one of: patch, minor, major"
+    return 1
+  fi
+
+  # Validate repository exists
+  if ! _validate_repository "$repo_name" "$base_path"; then
+    return 1
+  fi
+
+  local target_dir="$base_path/$repo_name"
+  
+  _print_header "🏷️  Creating new $increment_type tag for: $repo_name"
+
+  (cd "$target_dir" && {
+    # Fetch tags from remote to ensure we have the latest
+    echo "🔄 Fetching latest tags from remote..."
+    git fetch --tags --quiet 2>/dev/null
+    
+    # Get the latest tag
+    local latest_tag=$(git tag -l 'v*' | sort -V -r | head -n 1)
+    
+    if [ -z "$latest_tag" ]; then
+      echo "❌ No existing tags found. Cannot determine next version."
+      echo "   Consider creating an initial tag like v1.0.0"
+      return 1
+    fi
+    
+    echo "📌 Current latest tag: $latest_tag"
+    
+    # Parse version numbers (assuming format vMAJOR.MINOR.PATCH)
+    if [[ "$latest_tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+      local major="${BASH_REMATCH[1]}"
+      local minor="${BASH_REMATCH[2]}"
+      local patch="${BASH_REMATCH[3]}"
+      
+      # Increment based on type
+      case "$increment_type" in
+        patch)
+          patch=$((patch + 1))
+          ;;
+        minor)
+          minor=$((minor + 1))
+          patch=0
+          ;;
+        major)
+          major=$((major + 1))
+          minor=0
+          patch=0
+          ;;
+      esac
+      
+      local new_tag="v${major}.${minor}.${patch}"
+      
+      # Check if tag already exists
+      if git rev-parse "$new_tag" >/dev/null 2>&1; then
+        echo "❌ Tag $new_tag already exists"
+        return 1
+      fi
+      
+      # Create the tag
+      echo "🆕 Creating new tag: $new_tag"
+      if git tag "$new_tag"; then
+        echo "✅ Tag created successfully: $new_tag"
+        
+        # Push if requested
+        if [ "$should_push" = true ]; then
+          echo "📤 Pushing tag to remote..."
+          if git push origin "$new_tag"; then
+            echo "✅ Tag pushed to remote successfully"
+          else
+            echo "❌ Failed to push tag to remote"
+            return 1
+          fi
+        else
+          echo "💡 Tag created locally. Use 'git push origin $new_tag' to push to remote"
+        fi
+      else
+        echo "❌ Failed to create tag"
+        return 1
+      fi
+    else
+      echo "❌ Latest tag format not recognized: $latest_tag"
+      echo "   Expected format: vMAJOR.MINOR.PATCH (e.g., v1.0.1)"
+      return 1
+    fi
+  })
+}
+
+# Create and push tag (convenience function)
+git-tag-create-push() {
+  if [ $# -lt 2 ]; then
+    echo "Usage: git-tag-create-push <increment-type> <repo-name>"
+    echo "  increment-type: patch, minor, or major"
+    echo ""
+    echo "This is a convenience command that creates and pushes the tag."
+    echo "Equivalent to: git-tag-create <increment-type> <repo-name> --push"
+    echo ""
+    echo "Examples:"
+    echo "  git-tag-create-push patch my-repo    # v1.0.1 -> v1.0.2 and push"
+    echo "  git-tag-create-push minor my-repo    # v1.0.1 -> v1.1.0 and push"
+    echo "  git-tag-create-push major my-repo    # v1.0.1 -> v2.0.0 and push"
+    return 1
+  fi
+
+  # Simply call git-tag-create with --push flag
+  git-tag-create "$1" "$2" --push
 }

@@ -199,3 +199,45 @@ git-list-branches-one() {
     git branch -r 2>/dev/null | sed 's/^/  🔗 /' 2>/dev/null || echo "  (no remote branches found)"
   })
 }
+
+# Function to list latest tags in a single repository
+git-list-tag-one() {
+  if [ -z "$1" ]; then
+    echo "Usage: git-list-tag-one <repo-name>"
+    echo "Example: git-list-tag-one my-project"
+    return 1
+  fi
+
+  local repo_name="$1"
+  local base_path="$(pwd)"
+
+  if ! _validate_repository "$repo_name" "$base_path"; then
+    return 1
+  fi
+
+  local target_dir="$base_path/$repo_name"
+
+  _print_header "🏷️  Latest tags in repository: $repo_name"
+
+  (cd "$target_dir" && {
+    # Fetch tags from remote to ensure we have the latest
+    echo "🔄 Fetching tags from remote..."
+    git fetch --tags --quiet 2>/dev/null
+    
+    # Get the 5 latest tags sorted by version
+    local tags=$(git tag -l 'v*' | sort -V -r | head -n 5)
+    
+    if [ -n "$tags" ]; then
+      echo ""
+      echo "Latest 5 tags:"
+      echo "$tags" | while IFS= read -r tag; do
+        # Get tag date and message if annotated
+        local tag_date=$(git log -1 --format=%ai "$tag" 2>/dev/null | cut -d' ' -f1)
+        echo "  🏷️  $tag ($tag_date)"
+      done
+    else
+      echo ""
+      echo "⚠️  No tags found in this repository"
+    fi
+  })
+}
