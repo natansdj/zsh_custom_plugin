@@ -488,10 +488,14 @@ git-tag-create() {
     echo "📌 Current latest tag: $latest_tag"
     
     # Parse version numbers (assuming format vMAJOR.MINOR.PATCH)
-    if [[ "$latest_tag" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-      local major="${BASH_REMATCH[1]}"
-      local minor="${BASH_REMATCH[2]}"
-      local patch="${BASH_REMATCH[3]}"
+    # Remove 'v' prefix and split by dots
+    local version_string="${latest_tag#v}"
+    local version_parts=(${(s:.:)version_string})
+    
+    if [ ${#version_parts[@]} -eq 3 ]; then
+      local major="${version_parts[1]}"
+      local minor="${version_parts[2]}"
+      local patch="${version_parts[3]}"
       
       # Increment based on type
       case "$increment_type" in
