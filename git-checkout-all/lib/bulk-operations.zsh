@@ -387,13 +387,13 @@ git-status-all() {
   done
 }
 
-# List latest tags from all repositories
+# List latest tag from all repositories
 git-list-tag-all() {
   local base_path="$(pwd)"
   local success_count=0
   local total_repos=0
 
-  _print_header "🔍 Listing latest tags from repositories in $(pwd)..."
+  _print_header "🔍 Listing latest tag from repositories in $(pwd)..."
 
   # Get list of git repositories
   local repos=($(_get_git_repositories "$base_path"))
@@ -413,13 +413,12 @@ git-list-tag-all() {
       # Fetch tags from remote to ensure we have the latest
       git fetch --tags --quiet 2>/dev/null
       
-      # Get the 5 latest tags sorted by version
-      local tags=$(git tag -l 'v*' | sort -V -r | head -n 5)
+      # Get the latest tag only
+      local latest_tag=$(git tag -l 'v*' | sort -V -r | head -n 1)
       
-      if [ -n "$tags" ]; then
-        # Convert newlines to commas for display
-        local tag_list=$(echo "$tags" | tr '\n' ', ' | sed 's/,$//')
-        echo "📁 $repo_name: ✅ Latest tags ($tag_list)"
+      if [ -n "$latest_tag" ]; then
+        local tag_date=$(git log -1 --format=%ai "$latest_tag" 2>/dev/null | cut -d' ' -f1)
+        echo "📁 $repo_name: 🏷️  $latest_tag ($tag_date)"
         success_count=$((success_count + 1))
       else
         echo "📁 $repo_name: ⚠️  No tags found"

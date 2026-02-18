@@ -200,44 +200,76 @@ git-list-branches-one() {
   })
 }
 
-# Function to list latest tags in a single repository
+# Function to list latest tags in one or more repositories (comma-separated)
+# Single repo: lists 5 latest tags. Multiple repos: lists latest tag only per repo.
 git-list-tag-one() {
   if [ -z "$1" ]; then
-    echo "Usage: git-list-tag-one <repo-name>"
+    echo "Usage: git-list-tag-one <repo-name> [repo-name2,...]"
     echo "Example: git-list-tag-one my-project"
+    echo "Example: git-list-tag-one my-project,my-project-2   # multiple repos: latest tag only"
     return 1
   fi
 
-  local repo_name="$1"
   local base_path="$(pwd)"
+  # Parse comma-separated repo names
+  local repo_names=("${(@s:,:)1}")
+  # Trim whitespace from each name
+  repo_names=("${(@)repo_names//[[:space:]]/}")
+  local num_repos=${#repo_names[@]}
 
-  if ! _validate_repository "$repo_name" "$base_path"; then
-    return 1
-  fi
-
-  local target_dir="$base_path/$repo_name"
-
-  _print_header "🏷️  Latest tags in repository: $repo_name"
-
-  (cd "$target_dir" && {
-    # Fetch tags from remote to ensure we have the latest
-    echo "🔄 Fetching tags from remote..."
-    git fetch --tags --quiet 2>/dev/null
-    
-    # Get the 5 latest tags sorted by version
-    local tags=$(git tag -l 'v*' | sort -V -r | head -n 5)
-    
-    if [ -n "$tags" ]; then
-      echo ""
-      echo "Latest 5 tags:"
-      echo "$tags" | while IFS= read -r tag; do
-        # Get tag date and message if annotated
-        local tag_date=$(git log -1 --format=%ai "$tag" 2>/dev/null | cut -d' ' -f1)
-        echo "  🏷️  $tag ($tag_date)"
-      done
-    else
-      echo ""
-      echo "⚠️  No tags found in this repository"
+  # Validate all repositories exist
+  for repo_name in "${repo_names[@]}"; do
+    if [ -z "$repo_name" ]; then
+      continue
     fi
-  })
+    if ! _validate_repository "$repo_name" "$base_path"; then
+      return 1
+    fi
+  done
+
+  if [ $num_repos -eq 1 ]; then
+    # Single repo: list 5 latest tags (original behavior)
+    local repo_name="${repo_names[1]}"
+    local target_dir="$base_path/$repo_name"
+
+    _print_header "🏷️  Latest tags in repository: $repo_name"
+
+    (cd "$target_dir" && {
+      echo "🔄 Fetching tags from remote..."
+      git fetch --tags --quiet 2>/dev/null
+
+      local tags=$(git tag -l 'v*' | sort -V -r | head -n 5)
+
+      if [ -n "$tags" ]; then
+        echo ""
+        echo "Latest 5 tags:"
+        echo "$tags" | while IFS= read -r tag; do
+          local tag_date=$(git log -1 --format=%ai "$tag" 2>/dev/null | cut -d' ' -f1)
+          echo "  🏷️  $tag ($tag_date)"
+        done
+      else
+        echo ""
+        echo "⚠️  No tags found in this repository"
+      fi
+    })
+  else
+    # Multiple repos: list latest tag only per repo (like ggtla)
+    _print_header "🔍 Latest tag in repositories: ${repo_names[*]}"
+
+    for repo_name in "${repo_names[@]}"; do
+      [ -z "$repo_name" ] && continue
+      local target_dir="$base_path/$repo_name"
+
+      (cd "$target_dir" && {
+        git fetch --tags --quiet 2>/dev/null
+        local latest_tag=$(git tag -l 'v*' | sort -V -r | head -n 1)
+        if [ -n "$latest_tag" ]; then
+          local tag_date=$(git log -1 --format=%ai "$latest_tag" 2>/dev/null | cut -d' ' -f1)
+          echo "📁 $repo_name: 🏷️  $latest_tag ($tag_date)"
+        else
+          echo "📁 $repo_name: ⚠️  No tags found"
+        fi
+      })
+    done
+  fi
 }
