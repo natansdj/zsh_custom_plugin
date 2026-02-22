@@ -11,3 +11,7 @@ git-checkout-all/.git-checkout-all.conf
 !.github/*
 !example
 !example/*
+zsh-better-npm-completion
+zsh-better-npm-completion/*
+zsh-nvm
+zsh-nvm/*
