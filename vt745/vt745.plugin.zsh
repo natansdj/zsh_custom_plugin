@@ -31,6 +31,9 @@ alias gtfetch='git fetch --tags'
 ## Convert private key into single line
 #alias keytoline="awk -v ORS='\\n' '1' $1 | pbcopy"
 
+#Subtitle Translator
+alias translate_subtitle="${0:A:h}/translate_subtitle.sh"
+
 #Subtitle Renamer
 alias rename_subtitle="${0:A:h}/rename_subtitles.sh"
 
