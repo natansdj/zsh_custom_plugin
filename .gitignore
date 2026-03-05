@@ -7,6 +7,8 @@
 !git-checkout-all
 git-checkout-all/.git-checkout-all.conf
 !vt745
+/vt745/photos
+/vt745/photos/*
 !.github
 !.github/*
 !example
@@ -35,3 +37,4 @@ develop-eggs
 *.log
 *.pot
 *.mo
+
