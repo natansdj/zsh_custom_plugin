@@ -39,3 +39,7 @@ alias rename_subtitle="${0:A:h}/rename_subtitles.sh"
 
 #Video Renamer
 alias rename_video="${0:A:h}/rename_video.sh"
+
+# exiftool.sh — GPS Geotagging Helper
+alias geotag="${0:A:h}/exiftool.sh"
+
