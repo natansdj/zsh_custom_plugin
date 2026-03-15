@@ -103,6 +103,30 @@ _can_fast_forward() {
   [ "$merge_base" = "$head_commit" ]
 }
 
+# Remove local branches whose upstream remote branch is gone
+_remove_gone_local_branches() {
+  local current_branch=$(git branch --show-current 2>/dev/null)
+  local deleted_count=0
+  local deleted_branches=()
+
+  while IFS='|' read -r local_branch upstream_track; do
+    [ -z "$local_branch" ] && continue
+
+    if [[ "$upstream_track" == *"[gone]"* ]]; then
+      if [ "$local_branch" = "$current_branch" ]; then
+        continue
+      fi
+
+      if git branch -D "$local_branch" >/dev/null 2>&1; then
+        deleted_count=$((deleted_count + 1))
+        deleted_branches+=("$local_branch")
+      fi
+    fi
+  done < <(git for-each-ref --format='%(refname:short)|%(upstream:track)' refs/heads 2>/dev/null)
+
+  echo "$deleted_count:${deleted_branches[*]}"
+}
+
 # Pull updates for specific branches if available
 _pull_branch_updates() {
   local branches=("$@")
@@ -149,7 +173,8 @@ _process_repository_fetch() {
   local repo_path="$1"
   local use_prune="$2"
   local use_pull="$3"
-  shift 3
+  local use_remove_local="$4"
+  shift 4
   local target_branches=("$@")
   local repo_name=$(basename "$repo_path")
   
@@ -157,7 +182,7 @@ _process_repository_fetch() {
   
   (cd "$repo_path" && {
     local fetch_options=""
-    if [ "$use_prune" = true ]; then
+    if [ "$use_prune" = true ] || [ "$use_remove_local" = true ]; then
       fetch_options="--prune"
     fi
     
@@ -174,15 +199,42 @@ _process_repository_fetch() {
         local updated_branches=$(echo "$pull_result" | cut -d: -f2)
         
         if [ "$branch_pull_count" -gt 0 ]; then
-          echo " + 🔄 Pulled $branch_pull_count branch(es): $updated_branches"
-          return "$branch_pull_count"
+          echo -n " + 🔄 Pulled $branch_pull_count branch(es): $updated_branches"
         else
           local branch_list=$(echo "${target_branches[@]}" | sed 's/ /\//g')
-          echo " (no updates for $branch_list)"
-          return 0
+          echo -n " (no updates for $branch_list)"
         fi
+
+        if [ "$use_remove_local" = true ]; then
+          local remove_result=$(_remove_gone_local_branches)
+          local removed_count=$(echo "$remove_result" | cut -d: -f1)
+          local removed_branches=$(echo "$remove_result" | cut -d: -f2)
+
+          if [ "$removed_count" -gt 0 ]; then
+            echo " + 🧹 Removed $removed_count local branch(es): $removed_branches"
+          else
+            echo " + 🧹 No local gone branches"
+          fi
+        else
+          echo ""
+        fi
+
+        return "$branch_pull_count"
       else
-        echo ""
+        if [ "$use_remove_local" = true ]; then
+          local remove_result=$(_remove_gone_local_branches)
+          local removed_count=$(echo "$remove_result" | cut -d: -f1)
+          local removed_branches=$(echo "$remove_result" | cut -d: -f2)
+
+          if [ "$removed_count" -gt 0 ]; then
+            echo " + 🧹 Removed $removed_count local branch(es): $removed_branches"
+          else
+            echo " + 🧹 No local gone branches"
+          fi
+        else
+          echo ""
+        fi
+
         return 0
       fi
     else

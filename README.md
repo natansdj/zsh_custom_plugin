@@ -22,9 +22,11 @@ This plugin collection provides powerful tools for managing multiple Git reposit
 ### Key Highlights
 
 - **Bulk Git Operations**: Perform git operations across all repositories in a directory
+- **Selective Repository Checkout**: Target checkout operations to specific repositories only
 - **Single Repository Operations**: Targeted operations on specific repositories
 - **Smart Branch Management**: Auto-detection of local/remote branches with intelligent fallback
 - **Safe Merge Operations**: Fast-forward-only merges with confirmation prompts for complex cases
+- **Gone Branch Cleanup**: Remove local branches whose upstream remote branch is already gone
 - **Comprehensive Status Reporting**: Rich, emoji-enhanced output with detailed summaries
 - **Modular Architecture**: Clean, maintainable code structure with separated concerns
 
@@ -119,6 +121,25 @@ git-checkout-all -b hotfix/critical-bug
 📊 Summary: 2/3 repositories updated
 ```
 
+##### `git-checkout-selected` (alias: `ggco`)
+**Purpose**: Checkout or create branches only in selected repositories.
+
+**Capabilities**:
+- Same branch behavior as `git-checkout-all` (`ggcoa`)
+- Requires explicit repository selection with `--repo`
+- Supports creating new branches with `-b` flag
+- Useful when you only want a subset of repositories changed
+
+**Usage**:
+```bash
+# Checkout existing branch only in selected repositories
+ggco master --repo=repo1,repo2,repo3
+
+# Create new branch locally only in selected repositories
+ggco -b feature/new-feature --repo=repo1,repo2,repo3
+git-checkout-selected develop --repo=service-a,service-b
+```
+
 ##### `git-fetch-all` (alias: `ggfa`)
 **Purpose**: Fetch updates from remotes across all repositories with optional prune and pull.
 
@@ -126,6 +147,7 @@ git-checkout-all -b hotfix/critical-bug
 - Fetches all remotes for every repository
 - Optional `--prune` to remove stale remote-tracking branches
 - Optional `--pull` to update specific branches (develop-pjp, develop, staging, master)
+- Optional `--remove-local` to delete local branches with `[gone]` upstream
 - Smart pull with fast-forward-only merges
 - Returns to original branch after updates
 - Detailed reporting of pulled branches
@@ -144,6 +166,9 @@ ggfa --pull
 
 # Fetch with prune and pull
 ggfa --prune --pull
+
+# Fetch with prune and remove local branches whose upstream is gone
+ggfa --prune --remove-local
 ```
 
 **Pull Behavior**:
@@ -153,6 +178,7 @@ ggfa --prune --pull
 - **Branch preservation**: Returns to original branch after updates
 - **Smart detection**: Only updates branches that exist both locally and remotely
 - **Change detection**: Only pulls if remote has new commits
+- **Local cleanup**: With `--remove-local`, removes local branches with gone upstream (except current branch)
 
 **Output Example**:
 ```
@@ -275,7 +301,7 @@ Targeted operations for specific repositories with detailed output.
 
 **Capabilities**:
 - All features of `git-fetch-all` but for a single repository
-- Supports `--prune` and `--pull` flags
+- Supports `--prune`, `--pull`, and `--remove-local` flags
 - More detailed output than bulk operations
 - Validates repository exists before operation
 
@@ -293,6 +319,9 @@ ggfo --pull my-project
 
 # Fetch with prune and pull
 ggfo --prune --pull my-project
+
+# Fetch with prune and remove local branches whose upstream is gone
+ggfo --prune --remove-local my-project
 ```
 
 **Output Example**:
@@ -303,6 +332,11 @@ ggfo --prune --pull my-project
 
 ✅ Repository fetched successfully, 2 branch(es) pulled
 ```
+
+**Cleanup Behavior (`--remove-local`)**:
+- Runs fetch with prune to ensure remote-tracking refs are up to date
+- Deletes local branches whose upstream is marked as gone (`[gone]`)
+- Skips the currently checked out branch
 
 ##### `git-status-one` (alias: `gso`)
 **Purpose**: Show detailed status for a specific repository.
@@ -648,6 +682,9 @@ gsa
 cd ~/projects
 ggcoa -b feature/new-authentication
 
+# Create feature branch only in selected repositories
+ggco -b feature/new-authentication --repo=service-a,service-b,service-c
+
 # Later, merge to develop
 # (switch to each repo individually and use vt745 plugin)
 cd project-1 && gmtodevelop
@@ -671,6 +708,7 @@ ggmoa upstream origin develop
 # Morning routine: update all repos
 cd ~/projects
 ggfa --prune --pull
+ggfa --prune --remove-local
 gsa
 
 # Check specific project details

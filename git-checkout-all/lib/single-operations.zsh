@@ -4,15 +4,17 @@
 # Function to fetch a single repository
 git-fetch-one() {
   if [ -z "$1" ]; then
-    echo "Usage: git-fetch-one [--prune] [--pull] <repo-name>"
+    echo "Usage: git-fetch-one [--prune] [--pull] [--remove-local] <repo-name>"
     echo "Example: git-fetch-one my-project"
     echo "Example: git-fetch-one --pull my-project"
     echo "Example: git-fetch-one --prune --pull my-project"
+    echo "Example: git-fetch-one --prune --remove-local my-project"
     return 1
   fi
 
   local use_prune=false
   local use_pull=false
+  local use_remove_local=false
   local repo_name=""
   local base_path="$(pwd)"
 
@@ -27,9 +29,13 @@ git-fetch-one() {
         use_pull=true
         shift
         ;;
+      --remove-local)
+        use_remove_local=true
+        shift
+        ;;
       -*)
         echo "Unknown option: $1"
-        echo "Usage: git-fetch-one [--prune] [--pull] <repo-name>"
+        echo "Usage: git-fetch-one [--prune] [--pull] [--remove-local] <repo-name>"
         return 1
         ;;
       *)
@@ -37,7 +43,7 @@ git-fetch-one() {
           repo_name="$1"
         else
           echo "Error: Multiple repository names provided"
-          echo "Usage: git-fetch-one [--prune] [--pull] <repo-name>"
+          echo "Usage: git-fetch-one [--prune] [--pull] [--remove-local] <repo-name>"
           return 1
         fi
         shift
@@ -47,10 +53,11 @@ git-fetch-one() {
 
   # Validate repository name is provided
   if [ -z "$repo_name" ]; then
-    echo "Usage: git-fetch-one [--prune] [--pull] <repo-name>"
+    echo "Usage: git-fetch-one [--prune] [--pull] [--remove-local] <repo-name>"
     echo "Example: git-fetch-one my-project"
     echo "Example: git-fetch-one --pull my-project"
     echo "Example: git-fetch-one --prune --pull my-project"
+    echo "Example: git-fetch-one --prune --remove-local my-project"
     return 1
   fi
 
@@ -70,6 +77,10 @@ git-fetch-one() {
     operation_desc="$operation_desc and pulling"
   fi
 
+  if [ "$use_remove_local" = true ]; then
+    operation_desc="$operation_desc and removing gone local branches"
+  fi
+
   _print_header "🔄 $operation_desc repository: $repo_name"
 
   # Load target branches configuration once
@@ -85,7 +96,7 @@ git-fetch-one() {
   fi
 
   # Process the single repository
-  _process_repository_fetch "$target_dir" "$use_prune" "$use_pull" "${target_branches[@]}"
+  _process_repository_fetch "$target_dir" "$use_prune" "$use_pull" "$use_remove_local" "${target_branches[@]}"
   local exit_code=$?
   
   if [ $exit_code -eq -1 ]; then

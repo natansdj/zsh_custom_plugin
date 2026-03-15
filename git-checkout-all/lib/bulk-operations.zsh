@@ -105,11 +105,131 @@ git-checkout-all() {
   fi
 }
 
+# Function to checkout branch in selected repositories only
+git-checkout-selected() {
+  local create_branch=false
+  local branch_name=""
+  local repo_list=""
+  local base_path="$(pwd)"
+  local success_count=0
+  local total_repos=0
+
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -b)
+        create_branch=true
+        shift
+        ;;
+      --repo=*)
+        repo_list="${1#*=}"
+        shift
+        ;;
+      --repo)
+        if [ -z "$2" ]; then
+          echo "Error: --repo requires a value"
+          echo "Usage: git-checkout-selected [-b] <branch-name> --repo=repo1,repo2"
+          return 1
+        fi
+        repo_list="$2"
+        shift 2
+        ;;
+      -*)
+        echo "Unknown option: $1"
+        echo "Usage: git-checkout-selected [-b] <branch-name> --repo=repo1,repo2"
+        return 1
+        ;;
+      *)
+        if [ -z "$branch_name" ]; then
+          branch_name="$1"
+        else
+          echo "Error: Multiple branch names provided"
+          echo "Usage: git-checkout-selected [-b] <branch-name> --repo=repo1,repo2"
+          return 1
+        fi
+        shift
+        ;;
+    esac
+  done
+
+  if [ -z "$branch_name" ]; then
+    echo "Usage: git-checkout-selected [-b] <branch-name> --repo=repo1,repo2"
+    return 1
+  fi
+
+  if [ -z "$repo_list" ]; then
+    echo "Error: --repo is required"
+    echo "Usage: git-checkout-selected [-b] <branch-name> --repo=repo1,repo2"
+    return 1
+  fi
+
+  local selected_repos=(${(s:,:)repo_list})
+  selected_repos=("${(@)selected_repos//[[:space:]]/}")
+
+  for repo_name in "${selected_repos[@]}"; do
+    if ! _validate_repository "$repo_name" "$base_path"; then
+      return 1
+    fi
+  done
+
+  _print_header "🔍 Processing selected repositories in $(pwd)..."
+  if [ "$create_branch" = true ]; then
+    echo "🆕 Creating and checking out new branch: $branch_name"
+  else
+    echo "🌿 Attempting to checkout branch: $branch_name"
+  fi
+
+  for repo_name in "${selected_repos[@]}"; do
+    local target_dir="$base_path/$repo_name"
+    total_repos=$((total_repos + 1))
+
+    echo -n "📁 $repo_name: "
+    (cd "$target_dir" && {
+      if [ "$create_branch" = true ]; then
+        if _branch_exists_local "$branch_name"; then
+          echo "⚠️  Branch already exists locally"
+        else
+          if git checkout -b "$branch_name" >/dev/null 2>&1; then
+            echo "✅ Created and checked out"
+            success_count=$((success_count + 1))
+          else
+            echo "❌ Failed to create branch"
+          fi
+        fi
+      else
+        if _branch_exists_local "$branch_name"; then
+          if git checkout "$branch_name" >/dev/null 2>&1; then
+            echo "✅ Success"
+            success_count=$((success_count + 1))
+          else
+            echo "❌ Failed to checkout"
+          fi
+        elif _branch_exists_remote "origin" "$branch_name"; then
+          if git checkout -b "$branch_name" "origin/$branch_name" >/dev/null 2>&1; then
+            echo "✅ Success (created from remote)"
+            success_count=$((success_count + 1))
+          else
+            echo "❌ Failed to create from remote"
+          fi
+        else
+          echo "⚠️  Branch not found"
+        fi
+      fi
+    })
+  done
+
+  if [ "$create_branch" = true ]; then
+    _print_summary "$success_count" "$total_repos" "branches created"
+  else
+    _print_summary "$success_count" "$total_repos" "updated"
+  fi
+}
+
 # Function to fetch all repositories
 git-fetch-all() {
   local base_path="$(pwd)"
   local use_prune=false
   local use_pull=false
+  local use_remove_local=false
   local success_count=0
   local total_repos=0
   local pull_count=0
@@ -125,9 +245,13 @@ git-fetch-all() {
         use_pull=true
         shift
         ;;
+      --remove-local)
+        use_remove_local=true
+        shift
+        ;;
       *)
         echo "Unknown option: $1"
-        echo "Usage: git-fetch-all [--prune] [--pull]"
+        echo "Usage: git-fetch-all [--prune] [--pull] [--remove-local]"
         return 1
         ;;
     esac
@@ -141,6 +265,10 @@ git-fetch-all() {
   
   if [ "$use_pull" = true ]; then
     operation_desc="$operation_desc and pulling"
+  fi
+
+  if [ "$use_remove_local" = true ]; then
+    operation_desc="$operation_desc and removing gone local branches"
   fi
 
   _print_header "🔄 $operation_desc all repositories in $(pwd)..."
@@ -162,7 +290,7 @@ git-fetch-all() {
       total_repos=$((total_repos + 1))
       
       # Process the repository using the utility function
-      _process_repository_fetch "$dir" "$use_prune" "$use_pull" "${target_branches[@]}"
+      _process_repository_fetch "$dir" "$use_prune" "$use_pull" "$use_remove_local" "${target_branches[@]}"
       local exit_code=$?
       
       if [ $exit_code -ne -1 ]; then

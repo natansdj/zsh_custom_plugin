@@ -13,6 +13,9 @@ source "${PLUGIN_DIR}/lib/single-operations.zsh"
 # Alias for shorter command
 alias ggcoa='git-checkout-all'
 
+# Alias for checkout in selected repositories
+alias ggco='git-checkout-selected'
+
 # Alias for fetch all
 alias ggfa='git-fetch-all'
 
@@ -53,15 +56,20 @@ git-checkout-all-help() {
   echo "BULK OPERATIONS (all repos in current directory):"
   echo "  git-checkout-all [-b] <branch>        - Checkout branch in all repos (alias: ggcoa)"
   echo "                                          -b: Create new branch locally (like git checkout -b)"
-  echo "  git-fetch-all [--prune] [--pull]      - Fetch all repos, optionally prune and pull (alias: ggfa)"
+  echo "  git-checkout-selected [-b] <branch> --repo=repo1,repo2"
+  echo "                                        - Checkout branch in selected repos only (alias: ggco)"
+  echo "  git-fetch-all [--prune] [--pull] [--remove-local]"
+  echo "                                        - Fetch all repos, optionally prune, pull and remove gone local branches (alias: ggfa)"
   echo "                                          --pull: Updates configured target branches (default: develop/staging/master)"
+  echo "                                          --remove-local: Deletes local branches whose upstream is gone"
   echo "  git-match-origin-all <o1> <o2> <br> [repo] - Sync branch from origin1 to origin2 (alias: ggmoa)"
   echo "  git-list-branches-all                 - List all branches in all repos (alias: glba)"
   echo "  git-list-tag-all                      - List latest tag in all repos (alias: ggtla)"
   echo "  git-status-all                        - Show current branch status (alias: gsa)"
   echo ""
   echo "SINGLE REPO OPERATIONS:"
-  echo "  git-fetch-one [--prune] [--pull] <repo> - Fetch one repo, optionally prune and pull (alias: ggfo)"
+  echo "  git-fetch-one [--prune] [--pull] [--remove-local] <repo>"
+  echo "                                        - Fetch one repo, optionally prune, pull and remove gone local branches (alias: ggfo)"
   echo "  git-status-one <repo>                 - Show detailed status for one repo (alias: gso)"
   echo "  git-list-branches-one <repo>          - List all branches in one repo (alias: glbo)"
   echo "  git-list-tag-one <repo> [repo2,...]   - List tags: 1 repo = 5 latest; multiple = latest only (alias: ggtl)"
@@ -78,10 +86,14 @@ git-checkout-all-help() {
   echo "BULK:"
   echo "  ggcoa main                             # Checkout main branch in all repos"
   echo "  ggcoa -b feature/new-feature           # Create new branch locally in all repos"
+  echo "  ggco master --repo=repo1,repo2         # Checkout master in selected repos"
+  echo "  ggco -b feature/new-feature --repo=repo1,repo2"
+  echo "                                         # Create branch in selected repos"
   echo "  ggfa                                   # Fetch all repos"
   echo "  ggfa --prune                           # Fetch all repos with prune"
   echo "  ggfa --pull                            # Fetch and pull updates for configured target branches"
   echo "  ggfa --prune --pull                    # Fetch with prune and pull specific branches"
+  echo "  ggfa --prune --remove-local            # Fetch + prune and delete local branches with gone upstream"
   echo "  ggmoa upstream origin main             # Sync main branch from upstream to origin"
   echo "  ggmoa upstream origin dev my-repo      # Sync dev branch only in my-repo"
   echo "  glba                                   # List all branches in all repos"
@@ -92,6 +104,7 @@ git-checkout-all-help() {
   echo "  ggfo my-project                        # Fetch one repo"
   echo "  ggfo --pull my-project                 # Fetch and pull configured target branches in one repo"
   echo "  ggfo --prune --pull my-project         # Fetch with prune and pull in one repo"
+  echo "  ggfo --prune --remove-local my-project # Fetch + prune and delete local branches with gone upstream"
   echo "  gso my-project                         # Show detailed status for 'my-project'"
   echo "  glbo my-project                        # List all branches in 'my-project'"
   echo "  ggtl my-project                        # List 5 latest tags in 'my-project'"
@@ -109,6 +122,11 @@ git-checkout-all-help() {
   echo "    - Updates configured target branches (default: develop, staging, master)"
   echo "    - Uses fast-forward merges only for safety"
   echo "    - Returns to original branch after updates"
+  echo ""
+  echo "  git-fetch-all --remove-local / git-fetch-one --remove-local:"
+  echo "    - Fetches with prune to refresh remote-tracking refs"
+  echo "    - Deletes local branches whose upstream is marked [gone]"
+  echo "    - Skips deleting the currently checked out branch"
   echo ""
   echo "  git-tag-create:"
   echo "    - Reads latest tag from repository"
