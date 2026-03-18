@@ -233,6 +233,7 @@ git-fetch-all() {
   local success_count=0
   local total_repos=0
   local pull_count=0
+  local removed_local_count=0
 
   # Parse options
   while [[ $# -gt 0 ]]; do
@@ -291,19 +292,24 @@ git-fetch-all() {
       
       # Process the repository using the utility function
       _process_repository_fetch "$dir" "$use_prune" "$use_pull" "$use_remove_local" "${target_branches[@]}"
-      local exit_code=$?
-      
-      if [ $exit_code -ne -1 ]; then
+      if [ "$GCA_LAST_FETCH_FAILED" -ne 1 ]; then
         success_count=$((success_count + 1))
-        if [ "$use_pull" = true ] && [ $exit_code -gt 0 ]; then
-          pull_count=$((pull_count + exit_code))
+        if [ "$use_pull" = true ] && [ "$GCA_LAST_PULL_COUNT" -gt 0 ]; then
+          pull_count=$((pull_count + GCA_LAST_PULL_COUNT))
+        fi
+        if [ "$use_remove_local" = true ] && [ "$GCA_LAST_REMOVED_COUNT" -gt 0 ]; then
+          removed_local_count=$((removed_local_count + GCA_LAST_REMOVED_COUNT))
         fi
       fi
     fi
   done
 
-  if [ "$use_pull" = true ]; then
+  if [ "$use_pull" = true ] && [ "$use_remove_local" = true ]; then
+    _print_summary "$success_count" "$total_repos" "fetched, $pull_count pulled, $removed_local_count local removed"
+  elif [ "$use_pull" = true ]; then
     _print_summary "$success_count" "$total_repos" "fetched, $pull_count pulled"
+  elif [ "$use_remove_local" = true ]; then
+    _print_summary "$success_count" "$total_repos" "fetched, $removed_local_count local removed"
   else
     _print_summary "$success_count" "$total_repos" "fetched"
   fi

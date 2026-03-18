@@ -177,71 +177,66 @@ _process_repository_fetch() {
   shift 4
   local target_branches=("$@")
   local repo_name=$(basename "$repo_path")
+  local original_dir="$PWD"
+
+  typeset -g GCA_LAST_FETCH_FAILED=0
+  typeset -g GCA_LAST_PULL_COUNT=0
+  typeset -g GCA_LAST_REMOVED_COUNT=0
   
   echo -n "📁 $repo_name: "
-  
-  (cd "$repo_path" && {
-    local fetch_options=""
-    if [ "$use_prune" = true ] || [ "$use_remove_local" = true ]; then
-      fetch_options="--prune"
-    fi
-    
-    # First, fetch
-    if git fetch $fetch_options >/dev/null 2>&1; then
-      local fetch_success=true
-      echo -n "✅ Fetched"
-      
-      # If --pull is specified, try to update specific branches
-      if [ "$use_pull" = true ] && [ "$fetch_success" = true ]; then
-        
-        local pull_result=$(_pull_branch_updates "${target_branches[@]}")
-        local branch_pull_count=$(echo "$pull_result" | cut -d: -f1)
-        local updated_branches=$(echo "$pull_result" | cut -d: -f2)
-        
-        if [ "$branch_pull_count" -gt 0 ]; then
-          echo -n " + 🔄 Pulled $branch_pull_count branch(es): $updated_branches"
-        else
-          local branch_list=$(echo "${target_branches[@]}" | sed 's/ /\//g')
-          echo -n " (no updates for $branch_list)"
-        fi
 
-        if [ "$use_remove_local" = true ]; then
-          local remove_result=$(_remove_gone_local_branches)
-          local removed_count=$(echo "$remove_result" | cut -d: -f1)
-          local removed_branches=$(echo "$remove_result" | cut -d: -f2)
+  if ! cd "$repo_path" >/dev/null 2>&1; then
+    echo "❌ Failed"
+    GCA_LAST_FETCH_FAILED=1
+    cd "$original_dir" >/dev/null 2>&1
+    return 1
+  fi
 
-          if [ "$removed_count" -gt 0 ]; then
-            echo " + 🧹 Removed $removed_count local branch(es): $removed_branches"
-          else
-            echo " + 🧹 No local gone branches"
-          fi
-        else
-          echo ""
-        fi
+  local fetch_options=""
+  if [ "$use_prune" = true ] || [ "$use_remove_local" = true ]; then
+    fetch_options="--prune"
+  fi
 
-        return "$branch_pull_count"
-      else
-        if [ "$use_remove_local" = true ]; then
-          local remove_result=$(_remove_gone_local_branches)
-          local removed_count=$(echo "$remove_result" | cut -d: -f1)
-          local removed_branches=$(echo "$remove_result" | cut -d: -f2)
+  if ! git fetch $fetch_options >/dev/null 2>&1; then
+    echo "❌ Failed"
+    GCA_LAST_FETCH_FAILED=1
+    cd "$original_dir" >/dev/null 2>&1
+    return 1
+  fi
 
-          if [ "$removed_count" -gt 0 ]; then
-            echo " + 🧹 Removed $removed_count local branch(es): $removed_branches"
-          else
-            echo " + 🧹 No local gone branches"
-          fi
-        else
-          echo ""
-        fi
+  echo -n "✅ Fetched"
 
-        return 0
-      fi
+  if [ "$use_pull" = true ]; then
+    local pull_result=$(_pull_branch_updates "${target_branches[@]}")
+    local branch_pull_count=$(echo "$pull_result" | cut -d: -f1)
+    local updated_branches=$(echo "$pull_result" | cut -d: -f2)
+    GCA_LAST_PULL_COUNT="$branch_pull_count"
+
+    if [ "$branch_pull_count" -gt 0 ]; then
+      echo -n " + 🔄 Pulled $branch_pull_count branch(es): $updated_branches"
     else
-      echo "❌ Failed"
-      return -1
+      local branch_list=$(echo "${target_branches[@]}" | sed 's/ /\//g')
+      echo -n " (no updates for $branch_list)"
     fi
-  })
+  fi
+
+  if [ "$use_remove_local" = true ]; then
+    local remove_result=$(_remove_gone_local_branches)
+    local removed_count=$(echo "$remove_result" | cut -d: -f1)
+    local removed_branches=$(echo "$remove_result" | cut -d: -f2)
+    GCA_LAST_REMOVED_COUNT="$removed_count"
+
+    if [ "$removed_count" -gt 0 ]; then
+      echo " + 🧹 Removed $removed_count local branch(es): $removed_branches"
+    else
+      echo " + 🧹 No local gone branches"
+    fi
+  else
+    echo ""
+  fi
+
+  cd "$original_dir" >/dev/null 2>&1
+  return 0
 }
 
 # Print section header

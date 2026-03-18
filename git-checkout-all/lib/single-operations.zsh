@@ -97,20 +97,30 @@ git-fetch-one() {
 
   # Process the single repository
   _process_repository_fetch "$target_dir" "$use_prune" "$use_pull" "$use_remove_local" "${target_branches[@]}"
-  local exit_code=$?
+  local pull_count="$GCA_LAST_PULL_COUNT"
+  local removed_count="$GCA_LAST_REMOVED_COUNT"
   
-  if [ $exit_code -eq -1 ]; then
+  if [ "$GCA_LAST_FETCH_FAILED" -eq 1 ]; then
     echo ""
     echo "❌ Fetch operation failed for $repo_name"
     return 1
+  elif [ "$use_pull" = true ] && [ "$use_remove_local" = true ]; then
+    echo ""
+    if [ $pull_count -gt 0 ]; then
+      echo "✅ Repository fetched successfully, $pull_count branch(es) pulled, $removed_count local branch(es) removed"
+    else
+      echo "✅ Repository fetched successfully, no branches needed pulling, $removed_count local branch(es) removed"
+    fi
   elif [ "$use_pull" = true ]; then
-    local pull_count=$exit_code
     echo ""
     if [ $pull_count -gt 0 ]; then
       echo "✅ Repository fetched successfully, $pull_count branch(es) pulled"
     else
       echo "✅ Repository fetched successfully, no branches needed pulling"
     fi
+  elif [ "$use_remove_local" = true ]; then
+    echo ""
+    echo "✅ Repository fetched successfully, $removed_count local branch(es) removed"
   else
     echo ""
     echo "✅ Repository fetched successfully"
