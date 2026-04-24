@@ -294,3 +294,45 @@ git-list-tag-one() {
     done
   fi
 }
+
+# Function for PayCloud remote update
+git-remote-pc-update() {
+  # do this if current dir is git repository
+  if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "Warning: Current directory is not a git repository. Aborting."
+    return 1
+  fi
+
+  # do this if remote with name origin is found
+  if ! git remote | grep -q "^origin$"; then
+    echo "Warning: Remote 'origin' not found. Aborting."
+    return 1
+  fi
+
+  local current_url=$(git remote get-url origin 2>/dev/null)
+  
+  # if current remote origin url is already like this "github.work" then skip the process
+  if [[ "$current_url" == *"github.work"* ]]; then
+    echo "Warning: Remote 'origin' is already using github.work. Skipping."
+    return 0
+  fi
+
+  # do this if current git remote origin repository is "bitbucket.org:paycloudid"
+  # do not update or change if current git remote origin is not bitbucket.org AND not "paycloudid"
+  if [[ "$current_url" != *"bitbucket.org:paycloudid"* ]]; then
+    echo "Warning: Current remote 'origin' is not 'bitbucket.org:paycloudid'. Aborting."
+    return 1
+  fi
+
+  local new_url="${current_url/bitbucket.org:paycloudid/github.work:PayCloud-ID}"
+  
+  # change from "git@bitbucket.org:paycloudid" into "git@github.work:PayCloud-ID"
+  git remote set-url origin "$new_url"
+  
+  # create another push url to bitbucket.org, so one fetch url from github.work, two push url to github.work and bitbucket.org
+  git remote set-url --add --push origin "$new_url"
+  git remote set-url --add --push origin "$current_url"
+
+  echo "Successfully updated remote 'origin' for PayCloud-ID."
+  git remote -v
+}

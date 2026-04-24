@@ -25,7 +25,7 @@ alias gtlist='git tag -l -n99'
 
 ## Custom Alias for GIT
 alias gtprune='git tag -l | xargs git tag -d'
-alias gtfetch='git fetch --tags'
+alias gft='git fetch --tags'
 
 
 ## Convert private key into single line
