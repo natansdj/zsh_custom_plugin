@@ -76,7 +76,7 @@ git-checkout-all-help() {
   echo "  git-status-one <repo>                 - Show detailed status for one repo (alias: gso)"
   echo "  git-list-branches-one <repo>          - List all branches in one repo (alias: glbo)"
   echo "  git-list-tag-one <repo> [repo2,...]   - List tags: 1 repo = 5 latest; multiple = latest only (alias: ggtl)"
-  echo "  git-remote-pc-update                  - Update Bitbucket origin to GitHub + Bitbucket push URLs (alias: grpcu)"
+  echo "  git-remote-pc-update                  - Update Bitbucket origin to GitHub (no extra push URLs) (alias: grpcu)"
   echo ""
   echo "TAG CREATION:"
   echo "  git-tag-create <type> <repo> [--push] - Create new tag by incrementing from latest (alias: ggtc)"

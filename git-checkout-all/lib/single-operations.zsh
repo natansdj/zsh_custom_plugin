@@ -309,29 +309,48 @@ git-remote-pc-update() {
     return 1
   fi
 
-  local current_url=$(git remote get-url origin 2>/dev/null)
-  
-  # if current remote origin url is already like this "github.work" then skip the process
-  if [[ "$current_url" == *"github.work"* ]]; then
-    echo "Warning: Remote 'origin' is already using github.work. Skipping."
+  local -a push_urls
+  push_urls=("${(@f)$(git remote get-url --push --all origin 2>/dev/null)}")
+
+  local has_github_work=false
+  local bitbucket_push_url=""
+  local push_url_count=${#push_urls[@]}
+
+  local url
+  for url in "${push_urls[@]}"; do
+    [[ "$url" == *"github.work"* ]] && has_github_work=true
+    if [[ -z "$bitbucket_push_url" && "$url" == *"bitbucket.org:paycloudid"* ]]; then
+      bitbucket_push_url="$url"
+    fi
+  done
+
+  # If origin already pushes to github.work, only clean up the legacy Bitbucket push URL (when multiple push URLs exist).
+  if [ "$has_github_work" = true ]; then
+    if [ "$push_url_count" -gt 1 ] && [[ -n "$bitbucket_push_url" ]]; then
+      git remote set-url --delete --push origin "$bitbucket_push_url" >/dev/null 2>&1
+      echo "Removed legacy Bitbucket push URL from 'origin'."
+    else
+      echo "Remote 'origin' is already using github.work. Skipping."
+    fi
+    git remote -v
     return 0
   fi
 
-  # do this if current git remote origin repository is "bitbucket.org:paycloudid"
-  # do not update or change if current git remote origin is not bitbucket.org AND not "paycloudid"
-  if [[ "$current_url" != *"bitbucket.org:paycloudid"* ]]; then
-    echo "Warning: Current remote 'origin' is not 'bitbucket.org:paycloudid'. Aborting."
+  # Only migrate when origin currently pushes to Bitbucket PayCloud-ID.
+  if [[ -z "$bitbucket_push_url" ]]; then
+    echo "Warning: Current 'origin' push URL is not 'bitbucket.org:paycloudid'. Aborting."
     return 1
   fi
 
-  local new_url="${current_url/bitbucket.org:paycloudid/github.work:PayCloud-ID}"
-  
-  # change from "git@bitbucket.org:paycloudid" into "git@github.work:PayCloud-ID"
+  local new_url="${bitbucket_push_url/bitbucket.org:paycloudid/github.work:PayCloud-ID}"
+
+  # Ensure we don't keep any extra push URLs: delete all current push URLs, then rely on the fetch URL.
+  for url in "${push_urls[@]}"; do
+    git remote set-url --delete --push origin "$url" >/dev/null 2>&1
+  done
+
+  # Change from Bitbucket into GitHub Enterprise (github.work). Push URL will follow fetch URL.
   git remote set-url origin "$new_url"
-  
-  # create another push url to bitbucket.org, so one fetch url from github.work, two push url to github.work and bitbucket.org
-  git remote set-url --add --push origin "$new_url"
-  git remote set-url --add --push origin "$current_url"
 
   echo "Successfully updated remote 'origin' for PayCloud-ID."
   git remote -v
