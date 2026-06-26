@@ -2,8 +2,31 @@
 
 A comprehensive collection of custom Oh My Zsh plugins for advanced Git operations, multi-repository management, and workflow automation.
 
+---
+
+## 🤖 AI Agent Resources
+
+This repository has been configured with **unified AI agent instructions** accessible to Claude Code, GitHub Copilot, Cursor, Codex, and Gemini Code.
+
+**Start here:**
+- 📖 **[AGENTS.md](AGENTS.md)** — Primary entry point for all AI agents (canonical source of truth)
+- 📋 **[`.agents/rules/project-context.md`](.agents/rules/project-context.md)** — Repository overview and design patterns
+- 🏗️ **[`.agents/rules/architecture.md`](.agents/rules/architecture.md)** — Detailed architecture and data flows
+
+**Platform-specific bridges:**
+- **GitHub Copilot:** [`.github/copilot-instructions.md`](.github/copilot-instructions.md)
+- **Cursor:** `.cursor/rules/` and `.cursor/skills/` (symlinked to `.agents/`)
+- **Codex:** [`.codex/AGENTS.md`](.codex/AGENTS.md)
+- **Gemini Code:** [`.gemini/instructions.md`](.gemini/instructions.md)
+- **Claude Code:** Reads `AGENTS.md` directly
+
+All agents share the same unified SOT — no duplication, no drift.
+
+---
+
 ## Table of Contents
 
+- [AI Agent Resources](#-ai-agent-resources)
 - [Overview](#overview)
 - [Installation](#installation)
 - [Plugins](#plugins)
