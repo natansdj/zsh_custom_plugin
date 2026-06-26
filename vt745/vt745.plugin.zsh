@@ -1,6 +1,8 @@
 # Add your own custom plugins in the custom/plugins directory. Plugins placed
 # here will override ones with the same name in the main plugins directory.
 
+VT745_PLUGIN_DIR="${0:A:h}"
+
 ## Git
 alias gcd='git checkout dev'
 
@@ -39,6 +41,13 @@ alias rename_subtitle="${0:A:h}/rename_subtitles.sh"
 
 #Video Renamer
 alias rename_video="${0:A:h}/rename_video.sh"
+
+# Log splitter wrapper.
+# Use a function instead of an alias so zsh forwards all CLI arguments cleanly,
+# for example: split_log /path/to/app.log --size 25 --dest ~/Downloads/output
+split_log() {
+	python3 "${VT745_PLUGIN_DIR}/split_log.py" "$@"
+}
 
 # exiftool.sh — GPS Geotagging Helper
 alias geotag="${0:A:h}/exiftool.sh"
